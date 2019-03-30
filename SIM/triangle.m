@@ -1,14 +1,6 @@
-function [output] = triangle(tIn,freq,Amp)
-    T = 1/freq;
-    m1 = Amp / T;
-
-    if tIn == T
-        output = Amp;
-    else
-        output = m1*tIn;
-    end
-    if output > Amp
-        output = Amp;
-    end
+function [output] = triangle(tIn,freq)
+    Amp = 3.3;  %H
+    T = 1/freq; %X
+    output = Amp*(tIn/T);
 end
 
