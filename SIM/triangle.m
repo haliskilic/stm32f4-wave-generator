@@ -1,17 +1,14 @@
-function [output] = triangle(tIn,freq,Samp)
+function [output] = triangle(tIn,freq,Amp)
+    T = 1/freq;
+    m1 = Amp / T;
 
-T = 1/freq;
-m1 = Samp / T;
-
-if tIn == T
-    output = Samp;
-else
-    output = m1*tIn;
-end
-
-if output > Samp
-    output = Samp;
-end
-
+    if tIn == T
+        output = Amp;
+    else
+        output = m1*tIn;
+    end
+    if output > Amp
+        output = Amp;
+    end
 end
 
