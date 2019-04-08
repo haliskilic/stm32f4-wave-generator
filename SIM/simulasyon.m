@@ -3,22 +3,17 @@ clear
 close all
 format short
 
-freq    = 10*10^3;      %Signal Freq.
-period  = 1/freq;
-amp     = 3.3;          %Signal Amp.
+
 %% 
 timerFreq = 168*10^6;
 timerPeriod = 1/timerFreq;
-timerCounter = 1000;
+timerCounter = 84;
 pwmPeriod = (1/timerFreq)*timerCounter; 
 pwmFreq = 1 / pwmPeriod;
+%%
+freq    = 17*10^3;      %Signal Freq.
+amp     = 3.3;          %Signal Amp.
 
-t = 0:timerPeriod:period;
-arrayNumber = round(period/pwmPeriod);
+%% Calculating Duty Array;
 
-index = 1;
-
-for t = pwmPeriod:pwmPeriod:period
-    ampArray(index) = triangle(t,freq);
-    index = index+1;
-end
+tempArraySize = int(((1/freq)/(pwmPeriod)));

@@ -1,67 +1,34 @@
 #include "../Inc/waveform.h"
 
- WAVEFORM_HandleTypeDef WAVEFORM;
+/*Optional*/
+//WAVEFORM_HandleTypeDef WAVEFORM;
 
+/**
+ * Brief: This function sets timer parameters and calculates PWM parameters.
+ **/
 WAVEFORM_StatusTypeDef initWAVEFORM(struct WAVEFORM *WAVEFORM){
     /*Timer Parameters*/
-    WAVEFORM->timerCounter  = 84;
-    WAVEFORM->timerFreq     = 168000000.0;
+    WAVEFORM->timerCounter  = 84;	//Timer Counter;
+    WAVEFORM->timerFreq     = 168000000.0; //Timer Frequency;
 
     /*Calculation Parameters*/
-    WAVEFORM->pwmPeriod     = (double)(1.0/(WAVEFORM->timerFreq))*(double)(WAVEFORM->timerCounter);
-		WAVEFORM->pwmFreq				= 1.0 / WAVEFORM->pwmPeriod;
+    WAVEFORM->pwmPeriod     = (double)(1.0/(WAVEFORM->timerFreq))*(double)(WAVEFORM->timerCounter); //Sample Period;
+		WAVEFORM->pwmFreq				= 1.0 / WAVEFORM->pwmPeriod;	//Sample Frequency;
 
     return WAVEFORM_OK;
 }
 
-double rampWave(double time, double waveAmp, uint32_t freq){
-    double wavePeriod;
-    wavePeriod = 1.0/freq;
-    return waveAmp*(time/wavePeriod);
-}
-
-double squareWave(double time, double waveAmp, uint32_t freq){
-		double wavePeriod;
-		wavePeriod = 1.0/freq;
-		if(time <= (wavePeriod/2)){
-			return waveAmp;
-		}else{
-			return 0;
-		}
-}
-
-double whiteNoiseWave(double time, double waveAmp, uint32_t freq){
-	return rand();
-}
-
-double triangleWave(double time, double waveAmp, uint32_t freq){
-		double wavePeriod;
-		wavePeriod = 1.0/freq;
-		double halfPeriod = wavePeriod / 2.0;
-	
-		if( time <= halfPeriod){
-			return waveAmp*(time/halfPeriod);
-		}else{
-			double m = (waveAmp)/(halfPeriod-wavePeriod);
-			return m*(time - wavePeriod);
-		}
-}
-
-double sinWave(double time, double waveAmp, uint32_t freq){
-	double wavePeriod;
-	wavePeriod = 1.0/freq;
-	double sinAmp = waveAmp/2;
-	
-	return sinAmp*sin(2*3.141592*freq*time) + sinAmp;
-}
-
 /**
+ * Brief: This function returns adress of duty cycle array;
  * waveType:																									
  * 0 - Ramp Waveform;
  * 1 - Triangle Waveform;
  * 2 - Sinus Waveform;
  * 3 - Square Waveform;
- * 4 - whiteNoise Waveform;																									
+ * 4 - whiteNoise Waveform;
+ * waveAmp: Amplitude of desired function;
+ * waveFreq: Frequencyo of desired function;
+ * waveArraySize: The function writes duty cycle size to given adress.					
  **/
 uint16_t* calculateDutyArray(struct WAVEFORM *WAVEFORM,uint8_t waveType, double waveAmp, uint32_t waveFreq, uint32_t *waveArraySize){
 	
@@ -116,8 +83,46 @@ uint16_t* calculateDutyArray(struct WAVEFORM *WAVEFORM,uint8_t waveType, double 
 			
 			currentTime = currentTime + WAVEFORM->pwmPeriod;
 		}
-		
-		
-		
     return WAVEFORM->dutyCycleArray;
+}
+
+double rampWave(double time, double waveAmp, uint32_t freq){
+    double wavePeriod;
+    wavePeriod = 1.0/freq;
+    return waveAmp*(time/wavePeriod);
+}
+
+double squareWave(double time, double waveAmp, uint32_t freq){
+		double wavePeriod;
+		wavePeriod = 1.0/freq;
+		if(time <= (wavePeriod/2)){
+			return waveAmp;
+		}else{
+			return 0;
+		}
+}
+
+double whiteNoiseWave(double time, double waveAmp, uint32_t freq){
+	return rand();
+}
+
+double triangleWave(double time, double waveAmp, uint32_t freq){
+		double wavePeriod;
+		wavePeriod = 1.0/freq;
+		double halfPeriod = wavePeriod / 2.0;
+	
+		if( time <= halfPeriod){
+			return waveAmp*(time/halfPeriod);
+		}else{
+			double m = (waveAmp)/(halfPeriod-wavePeriod);
+			return m*(time - wavePeriod);
+		}
+}
+
+double sinWave(double time, double waveAmp, uint32_t freq){
+	double wavePeriod;
+	wavePeriod = 1.0/freq;
+	double sinAmp = waveAmp/2;
+	
+	return sinAmp*sin(2*3.141592*freq*time) + sinAmp;
 }
