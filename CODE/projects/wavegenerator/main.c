@@ -132,6 +132,9 @@ void Default_Handler(void)
 /*************************************************
 * main code starts from here
 *************************************************/
+
+WAVEFORM_HandleTypeDef WAVEFORM;
+
 int main(void)
 {
 	/* set system clock to 168 Mhz */

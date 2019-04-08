@@ -32,6 +32,7 @@ typedef struct WAVEFORM{
 		double pwmFreq;
 }WAVEFORM_HandleTypeDef;
 
+/*User Functions*/
 WAVEFORM_StatusTypeDef initWAVEFORM(struct WAVEFORM *WAVEFORM);
 uint16_t* calculateDutyArray(struct WAVEFORM *WAVEFORM,uint8_t waveType, double waveAmp, uint32_t freq, uint32_t *waveArraySize);
 
@@ -42,7 +43,8 @@ double sinWave(double time, double waveAmp, uint32_t freq);
 double squareWave(double time, double waveAmp, uint32_t freq);
 double whiteNoiseWave(double time, double waveAmp, uint32_t freq);
 
-extern WAVEFORM_HandleTypeDef WAVEFORM;
+/*Optional*/
+//extern WAVEFORM_HandleTypeDef WAVEFORM;
 
 #ifdef __cplusplus
 }
