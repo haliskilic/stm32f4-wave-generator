@@ -1,6 +1,7 @@
 // HK was here
 #include <stm32f4xx.h>
 #include <system_stm32f4xx.h>
+#include "../Inc/waveform.h"
 
 /*************************************************
 * function declarations
@@ -135,6 +136,7 @@ int main(void)
 {
 	/* set system clock to 168 Mhz */
 	set_sysclk_to_168();
+	initWAVEFORM(&WAVEFORM);
 
 	while(1)
 	{

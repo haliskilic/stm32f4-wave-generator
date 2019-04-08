@@ -1,7 +1,9 @@
 TARGET = main
-SRCS = main.c
+SRCS =  main.c Src/waveform.c
 
 LINKER_SCRIPT = ../../flash/stm32f407.ld
+
+INCLUDES = -IInc
 
 # Generate debug info
 DEBUG = 0
