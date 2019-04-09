@@ -52,7 +52,8 @@ void buffer_write_decimal2array(BUFFER *, uint32_t);
 void buffer_read(BUFFER *, uint8_t*);
 void buffer_read_array2decimal(BUFFER *, uint32_t*);
 void send_usart2_arrmessage(uint8_t *array, uint8_t size);
-
+void set_tim1_settings(void);
+void tim1_handler(void);
 /*************************************************
 * Vector Table
 *************************************************/
@@ -109,10 +110,10 @@ void (* const vector_table[])(void) = {
 	0,                                  /* 0x0A0 TIM1 Break interrupt and TIM9 global interrupt                    */
 	0,                                  /* 0x0A4 TIM1 Update Interrupt and TIM10 global interrupt                  */
 	0,                                  /* 0x0A8 TIM1 Trigger and Commutation Interrupt and TIM11 global interrupt */
-	0,                                  /* 0x0AC TIM1 Capture Compare Interrupt                                    */
+	tim1_handler,                                  /* 0x0AC TIM1 Capture Compare Interrupt                                    */
 	0,                       			/* 0x0B0 TIM2 global Interrupt                                             */
 	0,                                  /* 0x0B4 TIM3 global Interrupt                                             */
-	tim4_handler,                       /* 0x0B8 TIM4 global Interrupt                                             */
+	0,                       /* 0x0B8 TIM4 global Interrupt                                             */
 	0,                                  /* 0x0BC I2C1 Event Interrupt                                              */
 	0,                                  /* 0x0C0 I2C1 Error Interrupt                                              */
 	0,                                  /* 0x0C4 I2C2 Event Interrupt                                              */
@@ -174,26 +175,14 @@ void Default_Handler(void)
 }
 
 /*************************************************
-* timer 4 interrupt handler
+* timer 1 interrupt handler
 *************************************************/
-void tim4_handler(void)
+void tim1_handler(void)
 {
-	double x;
-	static uint32_t t = 0;
-	const uint32_t f = 10*period;
-	// generate new value each time
-	x = f/2 * ( sin(2 * M_PI * (float)t / (float)f) + 1);
-	if (t == f)
-	{
-		t = 0;
-	} else
-	{
-		++t;
-	}
 
-	// set new duty cycle
-	TIM4->CCR1 = (uint16_t)(x/10);
 }
+
+
 
 /*************************************************
 * set TIM4 settings
@@ -347,6 +336,36 @@ void send_usart2_arrmessage(uint8_t *arr, uint8_t size)
 
 }
 
+void set_tim1_settings(void)
+{
+	GPIOD->ODR = 0x0;
+
+	// enable TIM1 clock (bit0)
+	RCC->APB1ENR |= (1 << 0);
+
+	// Timer clock runs at ABP1 * 2
+	//   since ABP1 is set to /4 of fCLK
+	//   thus 168M/4 * 2 = 84Mhz
+	// set prescaler to 83999
+	//   it will increment counter every prescalar cycles
+	// fCK_PSC / (PSC[15:0] + 1)
+	// 84 Mhz / 8399 + 1 = 10 khz timer clock speed
+	TIM1->PSC = 16799;
+
+	// Set the auto-reload value to 10000
+	//   which should give 1 second timer interrupts
+	TIM1->ARR = 100;
+
+	// Update Interrupt Enable
+	TIM1->DIER |= (1 << 0);
+
+	// enable TIM2 IRQ from NVIC
+	NVIC_EnableIRQ(TIM1_IRQn);
+
+	// Enable Timer 2 module (CEN, bit0)
+	TIM1->CR1 |= (1 << 0);
+}
+
 /*************************************************
 * main code starts from here
 *************************************************/
@@ -357,6 +376,7 @@ int main(void)
 	set_sysclk_to_168();
     set_usart2_settings();
     set_blink_settings();
+	set_tim1_settings();
 	initWAVEFORM(&WAVEFORM);
 
     uint8_t q1[] = "\r\n- Choose Wave Form ?\r\nSine         (1)\r\nPWM          (2)\r\nTriangular   (3)\r\nRamp         (4)\r\nWhiteNoise   (5)\r\n#:";
