@@ -15,6 +15,7 @@
 #include <stm32f4xx.h>
 #include <system_stm32f4xx.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <math.h>
 
 typedef enum {
@@ -23,13 +24,13 @@ typedef enum {
 }WAVEFORM_StatusTypeDef;
 
 typedef struct WAVEFORM{
-    uint16_t dutyCycleArray[4000];
+    uint16_t dutyCycleArray[40001];
     uint32_t dutyCycleSize;
 
     uint16_t timerCounter;
     double timerFreq;
     double pwmPeriod;
-		double pwmFreq;
+	double pwmFreq;
 }WAVEFORM_HandleTypeDef;
 
 /*User Functions*/
@@ -44,7 +45,7 @@ double squareWave(double time, double waveAmp, uint32_t freq);
 double whiteNoiseWave(double time, double waveAmp, uint32_t freq);
 
 /*Optional*/
-//extern WAVEFORM_HandleTypeDef WAVEFORM;
+extern WAVEFORM_HandleTypeDef WAVEFORM;
 
 #ifdef __cplusplus
 }

@@ -1,7 +1,8 @@
 #include "../Inc/waveform.h"
+#include <math.h>
 
 /*Optional*/
-//WAVEFORM_HandleTypeDef WAVEFORM;
+WAVEFORM_HandleTypeDef WAVEFORM;
 
 /**
  * Brief: This function sets timer parameters and calculates PWM parameters.
@@ -39,7 +40,7 @@ uint16_t* calculateDutyArray(struct WAVEFORM *WAVEFORM,uint8_t waveType, double 
 		WAVEFORM->dutyCycleSize = 0;
 	
 		while(finishCheck){
-			if(waveType == 0){
+			if(waveType == 4){
 				if(currentTime <= wavePeriod){
 					WAVEFORM->dutyCycleArray[WAVEFORM->dutyCycleSize] = (uint16_t)(((WAVEFORM->timerCounter/3.3))*(rampWave(currentTime,waveAmp,waveFreq)));
 					WAVEFORM->dutyCycleSize ++;
@@ -47,7 +48,7 @@ uint16_t* calculateDutyArray(struct WAVEFORM *WAVEFORM,uint8_t waveType, double 
 					finishCheck = 0;
 					*waveArraySize = WAVEFORM->dutyCycleSize;
 				}
-			}else if(waveType == 1){
+			}else if(waveType == 3){
 				if(currentTime <= wavePeriod){
 					WAVEFORM->dutyCycleArray[WAVEFORM->dutyCycleSize] = (uint16_t)(((WAVEFORM->timerCounter/3.3))*(triangleWave(currentTime,waveAmp,waveFreq)));
 					WAVEFORM->dutyCycleSize ++;
@@ -55,7 +56,7 @@ uint16_t* calculateDutyArray(struct WAVEFORM *WAVEFORM,uint8_t waveType, double 
 					finishCheck = 0;
 					*waveArraySize = WAVEFORM->dutyCycleSize;
 				}
-			}else if(waveType == 2){
+			}else if(waveType == 1){
 				if(currentTime <= wavePeriod){
 					WAVEFORM->dutyCycleArray[WAVEFORM->dutyCycleSize] = (uint16_t)(((WAVEFORM->timerCounter/3.3))*(sinWave(currentTime,waveAmp,waveFreq)));
 					WAVEFORM->dutyCycleSize ++;
@@ -63,7 +64,7 @@ uint16_t* calculateDutyArray(struct WAVEFORM *WAVEFORM,uint8_t waveType, double 
 					finishCheck = 0;
 					*waveArraySize = WAVEFORM->dutyCycleSize-1;
 				}
-			}else if(waveType == 3){
+			}else if(waveType == 2){
 				if(currentTime <= wavePeriod){
 					WAVEFORM->dutyCycleArray[WAVEFORM->dutyCycleSize] = (uint16_t)(((WAVEFORM->timerCounter/3.3))*(squareWave(currentTime,waveAmp,waveFreq)));
 					WAVEFORM->dutyCycleSize ++;
@@ -71,7 +72,7 @@ uint16_t* calculateDutyArray(struct WAVEFORM *WAVEFORM,uint8_t waveType, double 
 					finishCheck = 0;
 					*waveArraySize = WAVEFORM->dutyCycleSize;
 				}
-			}else if(waveType == 4){
+			}else if(waveType == 5){
 				if(currentTime <= wavePeriod){
 					WAVEFORM->dutyCycleArray[WAVEFORM->dutyCycleSize] = (uint16_t)(whiteNoiseWave(currentTime,waveAmp,waveFreq));
 					WAVEFORM->dutyCycleSize ++;
@@ -120,9 +121,7 @@ double triangleWave(double time, double waveAmp, uint32_t freq){
 }
 
 double sinWave(double time, double waveAmp, uint32_t freq){
-	double wavePeriod;
-	wavePeriod = 1.0/freq;
-	double sinAmp = waveAmp/2;
-	
-	return sinAmp*sin(2*3.141592*freq*time) + sinAmp;
+	//double sinAmp = waveAmp/2;
+	//return sinAmp*sin(2*3.141592*freq*time) + sinAmp;
+	return 0;
 }

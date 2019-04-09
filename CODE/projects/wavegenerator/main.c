@@ -1,6 +1,7 @@
-// HK was here
 #include <stm32f4xx.h>
 #include <system_stm32f4xx.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include "../Inc/waveform.h"
 
 /*************************************************
@@ -8,6 +9,49 @@
 *************************************************/
 int main(void);
 void Default_Handler(void);
+
+/*************************************************
+* Defines
+*************************************************/
+#define BUFSIZE 24
+
+/*************************************************
+* Structs
+*************************************************/
+typedef struct __BUFFER
+{
+    uint32_t in_indx;       //next index for writing
+    uint32_t out_indx;      //next index for reading
+    uint8_t buf[BUFSIZE];
+} BUFFER;
+
+typedef struct __WAVEGEN
+{
+    uint8_t wavetype;       // WaveType [1]:Sine [2]:Square [3]:Triangular [4]:Sawtooth(ramp) [5]:WhiteNoise
+    uint32_t amp;           // Amplitude 0mV-3300mV
+    uint32_t freq;          // Range 0hz-1MHz
+    uint8_t genstatus; // [0]: Wave is generating [1]: Waiting WaveType [2]: Waiting amp [3]: Waiting freq
+} WAVEGEN;
+
+/*************************************************
+* Users 
+*************************************************/
+BUFFER BUF;
+WAVEGEN WAVE;
+uint32_t arraySize;
+/*************************************************
+* function declarations
+*************************************************/
+void Default_Handler(void);
+int main(void);
+void Usart2_Handler(void);
+void set_usart2_settings(void);
+void set_blink_settings(void);
+void buffer_write(BUFFER *, uint8_t);
+void buffer_write_decimal2array(BUFFER *, uint32_t);
+void buffer_read(BUFFER *, uint8_t*);
+void buffer_read_array2decimal(BUFFER *, uint32_t*);
+void send_usart2_arrmessage(uint8_t *array, uint8_t size);
 
 /*************************************************
 * Vector Table
@@ -68,7 +112,7 @@ void (* const vector_table[])(void) = {
 	0,                                  /* 0x0AC TIM1 Capture Compare Interrupt                                    */
 	0,                       			/* 0x0B0 TIM2 global Interrupt                                             */
 	0,                                  /* 0x0B4 TIM3 global Interrupt                                             */
-	0,                                  /* 0x0B8 TIM4 global Interrupt                                             */
+	tim4_handler,                       /* 0x0B8 TIM4 global Interrupt                                             */
 	0,                                  /* 0x0BC I2C1 Event Interrupt                                              */
 	0,                                  /* 0x0C0 I2C1 Error Interrupt                                              */
 	0,                                  /* 0x0C4 I2C2 Event Interrupt                                              */
@@ -76,7 +120,7 @@ void (* const vector_table[])(void) = {
 	0,                                  /* 0x0CC SPI1 global Interrupt                                             */
 	0,                                  /* 0x0D0 SPI2 global Interrupt                                             */
 	0,                                  /* 0x0D4 USART1 global Interrupt                                           */
-	0,                                  /* 0x0D8 USART2 global Interrupt                                           */
+	Usart2_Handler,                     /* 0x0D8 USART2 global Interrupt                                           */
 	0,                                  /* 0x0DC USART3 global Interrupt                                           */
 	0,                                  /* 0x0E0 External Line[15:10] Interrupts                                   */
 	0,                                  /* 0x0E4 RTC Alarm (A and B) through EXTI Line Interrupt                   */
@@ -130,21 +174,265 @@ void Default_Handler(void)
 }
 
 /*************************************************
-* main code starts from here
+* timer 4 interrupt handler
+*************************************************/
+void tim4_handler(void)
+{
+	double x;
+	static uint32_t t = 0;
+	const uint32_t f = 10*period;
+	// generate new value each time
+	x = f/2 * ( sin(2 * M_PI * (float)t / (float)f) + 1);
+	if (t == f)
+	{
+		t = 0;
+	} else
+	{
+		++t;
+	}
+
+	// set new duty cycle
+	TIM4->CCR1 = (uint16_t)(x/10);
+}
+
+/*************************************************
+* set TIM4 settings
 *************************************************/
 
-WAVEFORM_HandleTypeDef WAVEFORM;
+
+/*************************************************
+* default Usart2 interrupt handler
+*************************************************/
+void Usart2_Handler(void)
+{
+    USART2->SR &= ~USART_SR_RXNE;	// clear interrupt //RM0090/page1007
+    // [FIX] check for transmit status ?
+    buffer_write(&BUF, (uint8_t)USART2->DR);
+    /*if(USART2->DR == 13)
+    {
+        uint32_t outdata;
+        buffer_read_array2decimal(&BUF,&outdata);
+        USART2->DR = outdata;
+    }*/
+}
+/*************************************************
+* set Usart2 settings
+*************************************************/
+void set_usart2_settings(void)
+{
+    // enable GPIOA clock, bit 0 on AHB1ENR
+    RCC->AHB1ENR |= (1 << 0);
+    // enable USART2 clock, bit 17 on APB1ENR
+    RCC->APB1ENR |= (1 << 17);
+    // set pin modes as alternate mode 7 (pins 2 and 3)
+    GPIOA->MODER &= 0xFFFFFF0F;     // Reset bits 10-15 to clear old values
+    GPIOA->MODER |= 0x000000A0;     // Set pin 2/3 to alternate func. mode (0b10)
+    // set pin modes as high speed
+    GPIOA->OSPEEDR |= 0x000000A0;   // Set pin 2/3 to high speed mode (0b10)
+    // choose AF7 for USART2 in Alternate Function registers
+    GPIOA->AFR[0] |= (0x7 << 8);    // for pin 2
+    GPIOA->AFR[0] |= (0x7 << 12);   // for pin 3
+        // usart2 word length M, bit 12
+    //USART2->CR1 |= (0 << 12);     // 0 - 1,8,n
+
+    // usart2 parity control, bit 9
+    //USART2->CR1 |= (0 << 9);  // 0 - no parity
+
+    // usart2 tx enable, TE bit 3
+    USART2->CR1 |= (1 << 3);
+
+    // usart2 rx enable, RE bit 2
+    USART2->CR1 |= (1 << 2);
+
+    // baud rate = fCK / (8 * (2 - OVER8) * USARTDIV)
+    //   for fCK = 42 Mhz, baud = 115200, OVER8 = 0
+    //   USARTDIV = 42Mhz / 115200 / 16
+    //   = 22.7864 22.8125
+    // we can also look at the table in RM0090
+    //   for 42 Mhz PCLK, OVER8 = 0 and 115.2 KBps baud
+    //   we need to program 22.8125
+    // Fraction : 16*0.8125 = 13 (multiply fraction with 16)
+    // Mantissa : 22
+    // 12-bit mantissa and 4-bit fraction
+    USART2->BRR |= (22 << 4);
+    USART2->BRR |= 13;
+
+    // enable usart2 tx & rx interrupt
+
+    USART2->CR1 |= (1 << 5);        //RXNEIE TXEIE [RM0090 -> page1012]
+    // enable usart2 - UE, bit 13
+    USART2->CR1 |= (1 << 13);
+
+
+    NVIC->IP[USART2_IRQn] = 0x10;   // Priority level 1
+    NVIC_EnableIRQ(USART2_IRQn);
+}
+
+
+/*************************************************
+* set Blink settings
+*************************************************/
+void set_blink_settings(void)
+{
+    RCC->AHB1ENR |= 0x00000008;     // enable gipod clock
+    GPIOD->MODER &= 0xFCFFFFFF;     // Reset bits 25:24 to clear old values
+    GPIOD->MODER |= 0x01000000;     // Set MODER bits 25:24 to 01
+    GPIOD->ODR |= 0x1000;
+}
+/*************************************************
+* Buffer Write Function
+*************************************************/
+void buffer_write(BUFFER *buf, uint8_t indata)
+{
+    buf->buf[buf->in_indx] = indata;
+    if(buf->in_indx == BUFSIZE) 
+        buf->in_indx=0;
+    else
+        buf->in_indx++;
+    //check
+    if(buf->in_indx == buf->out_indx)   // Buffer overflow
+    {
+        GPIOD->ODR ^= (1 << 12);		// Toggle LED
+        buf->in_indx = 0;
+        buf->out_indx = 0;
+    }
+}
+/*************************************************
+* Decimal Elements Convert to U8Array for BUFFER
+* Used CR(13) for separating 
+*************************************************/
+void buffer_write_decimal2array(BUFFER *buf, uint32_t indecimal)
+{
+}
+
+/*************************************************
+* Buffer Read Function
+*************************************************/
+void buffer_read(BUFFER *buf, uint8_t* outdata)
+{
+    *outdata = buf->buf[buf->out_indx]; // [FIX] başlangıçta NULL dönmeli.
+    if(buf->out_indx == BUFSIZE)
+        buf->out_indx=0;
+    else
+        buf->out_indx++;
+    //check
+    if(buf->out_indx == buf->in_indx) // Buffer cleared
+    {
+        buf->in_indx = 0;
+        buf->out_indx = 0;
+        *outdata = 0;
+    }
+
+}
+/*************************************************
+* Buffer Elements Convert to Decimal
+* Used CR(13) for separating 
+*************************************************/
+void buffer_read_array2decimal(BUFFER *buf, uint32_t *outdecimal)
+{
+    uint8_t outdata='0';
+    *outdecimal=0;
+    while(outdata != 13 && outdata != 0)
+    {
+        *outdecimal = *outdecimal*10 + (uint32_t)(outdata - '0');   //[FIX] 1cycle Gereksiz islem var.
+        buffer_read(buf,&outdata);
+    }
+}
+
+/*************************************************
+* Send Array to USART2
+*************************************************/
+void send_usart2_arrmessage(uint8_t *arr, uint8_t size)
+{
+
+}
+
+/*************************************************
+* main code starts from here
+*************************************************/
 
 int main(void)
 {
 	/* set system clock to 168 Mhz */
 	set_sysclk_to_168();
+    set_usart2_settings();
+    set_blink_settings();
 	initWAVEFORM(&WAVEFORM);
 
-	while(1)
-	{
-		
-	}
+    uint8_t q1[] = "\r\n- Choose Wave Form ?\r\nSine         (1)\r\nPWM          (2)\r\nTriangular   (3)\r\nRamp         (4)\r\nWhiteNoise   (5)\r\n#:";
+    uint8_t q2[] = "\r\n- Set Freq. (500-1000000hz)\r\n#:";
+    uint8_t q3[] = "\r\n- Set Amp. (0-3300mV)\r\n#:";
+    //const uint8_t warning[] = "\r\n- Warning out of range number.\r\n";
+    WAVE.genstatus=0;
 
-	return 0;
+    while(1)
+    {
+        if(WAVE.genstatus==0)
+        {
+            for (uint8_t i=0; i<sizeof(q1)-1; i++)
+            {
+                // send character
+                USART2->DR = (uint32_t)q1[i];
+                // wait for transmit complete
+                while(!(USART2->SR & (1 << 6)));
+            }
+            while(1)
+                if(BUF.in_indx != 0 && BUF.buf[BUF.in_indx-1] == 13)   // [FIX] 0. elemanda  girmez!
+                {
+                    uint32_t outdecimal;
+                    buffer_read_array2decimal(&BUF, &outdecimal);
+                    WAVE.wavetype=(uint8_t)outdecimal;
+                    WAVE.genstatus++;
+                    BUF.buf[BUF.in_indx-1] = 0;
+                    break;
+                }
+        }
+        else if(WAVE.genstatus==1)
+        {
+            for (uint8_t i=0; i<sizeof(q2)-1; i++)
+            {
+                // send character
+                USART2->DR = (uint32_t)q2[i];
+                // wait for transmit complete
+                while(!(USART2->SR & (1 << 6)));
+            }
+            while(1)
+                if(BUF.in_indx != 0 && BUF.buf[BUF.in_indx-1] == 13)   // [FIX] 0. elemanda  girmez!
+                {
+                    uint32_t outdecimal;
+                    buffer_read_array2decimal(&BUF, &outdecimal);
+                    WAVE.freq=outdecimal;
+                    WAVE.genstatus++;
+                    BUF.buf[BUF.in_indx-1] = 0;
+                    break;
+                }
+        }
+        else if(WAVE.genstatus==2)
+        {
+            for (uint8_t i=0; i<sizeof(q3)-1; i++)
+            {
+                // send character
+                USART2->DR = (uint32_t)q3[i];
+                // wait for transmit complete
+                while(!(USART2->SR & (1 << 6)));
+            }
+            while(1)
+                if(BUF.in_indx != 0 && BUF.buf[BUF.in_indx-1] == 13)   // [FIX] 0. elemanda  girmez!
+                {
+                    uint32_t outdecimal;
+                    buffer_read_array2decimal(&BUF, &outdecimal);
+                    WAVE.amp=outdecimal;
+                    WAVE.genstatus=0;
+                    BUF.buf[BUF.in_indx-1] = 0;
+                    break;
+                }
+        }
+		calculateDutyArray(&WAVEFORM,WAVE.wavetype,(double)(WAVE.amp/1000),WAVE.freq,&arraySize);
+        // wait for transmit complete
+        //while(!(USART2->SR & (1 << 6)));
+        // slow down
+        //for(int i=0; i<1000000; i++);
+        //[IDEA] add wwdg
+    }
+    return 0;
 }
