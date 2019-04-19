@@ -8,6 +8,7 @@
 *.elf
 
 # Linker output
+desktop.ini
 *.ilk
 *.map
 *.exp
